@@ -1,3 +1,4 @@
+```json
 {
   "crons": [
     {
@@ -7,18 +8,3 @@
   ]
 }
 ```
-
-4. Click **Commit changes** (green button)
-
----
-
-**Then go to Vercel:**
-
-1. Go to **Deployments** tab
-2. Click **⋮** on latest → **Redeploy**
-
----
-
-Once redeployed, try again:
-```
-https://drowned-buyback.vercel.app/api/health

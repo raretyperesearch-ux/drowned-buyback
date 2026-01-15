@@ -1189,12 +1189,12 @@
         const res = await fetch('/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tokenMint: document.getElementById('token-mint').value,
-            tokenName: document.getElementById('token-name').value,
-            tokenTicker: document.getElementById('token-ticker').value,
-            creatorWallet: document.getElementById('owner-wallet').value
-          })
+         body: JSON.stringify({
+  tokenMint: document.getElementById('token-mint').value,
+  tokenName: document.getElementById('token-name').value,
+  tokenTicker: document.getElementById('token-ticker').value,
+  creatorWallet: document.getElementById('owner-wallet').value
+})
         });
         
         const data = await res.json();

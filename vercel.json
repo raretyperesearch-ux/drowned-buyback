@@ -1,19 +1,4 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/public/$1" }
-  ],
   "crons": [
     {
       "path": "/api/cron",
@@ -21,3 +6,19 @@
     }
   ]
 }
+```
+
+4. Click **Commit changes** (green button)
+
+---
+
+**Then go to Vercel:**
+
+1. Go to **Deployments** tab
+2. Click **⋮** on latest → **Redeploy**
+
+---
+
+Once redeployed, try again:
+```
+https://drowned-buyback.vercel.app/api/health

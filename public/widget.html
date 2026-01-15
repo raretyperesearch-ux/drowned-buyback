@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Burn Widget</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: transparent;
+    }
+
+    .widget {
+      background: #0d0d14;
+      border: 1px solid #1a1a24;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 320px;
+      color: #e8e8ed;
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .widget-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #8b5cf6, #f97316);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .widget-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e8e8ed;
+    }
+
+    .widget-subtitle {
+      font-size: 0.7rem;
+      color: #555566;
+    }
+
+    .widget-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .widget-stat {
+      background: #0a0a0f;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .widget-stat-label {
+      font-size: 0.65rem;
+      color: #555566;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .widget-stat-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .widget-stat-value.burn {
+      color: #f97316;
+    }
+
+    .widget-stat-value.sol {
+      color: #10b981;
+    }
+
+    .widget-recent {
+      margin-bottom: 16px;
+    }
+
+    .widget-recent-title {
+      font-size: 0.7rem;
+      color: #555566;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .widget-burn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #1a1a24;
+      font-size: 0.8rem;
+    }
+
+    .widget-burn:last-child {
+      border-bottom: none;
+    }
+
+    .widget-burn-amount {
+      color: #f97316;
+      font-weight: 500;
+    }
+
+    .widget-burn-time {
+      color: #555566;
+      font-size: 0.7rem;
+    }
+
+    .widget-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding-top: 12px;
+      border-top: 1px solid #1a1a24;
+    }
+
+    .widget-footer a {
+      color: #8b5cf6;
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .widget-footer a:hover {
+      text-decoration: underline;
+    }
+
+    .widget-live {
+      width: 6px;
+      height: 6px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Dark theme variant */
+    .widget.dark {
+      background: #050507;
+    }
+
+    /* Compact variant */
+    .widget.compact {
+      padding: 16px;
+      max-width: 280px;
+    }
+
+    .widget.compact .widget-stats {
+      grid-template-columns: 1fr;
+    }
+  </style>
+</head>
+<body>
+  <div class="widget" id="burn-widget">
+    <div class="widget-header">
+      <div class="widget-logo">🔥</div>
+      <div>
+        <div class="widget-title" id="widget-ticker">Loading...</div>
+        <div class="widget-subtitle">Powered by DROWNED</div>
+      </div>
+    </div>
+
+    <div class="widget-stats">
+      <div class="widget-stat">
+        <div class="widget-stat-label">Tokens Burned</div>
+        <div class="widget-stat-value burn" id="widget-burned">—</div>
+      </div>
+      <div class="widget-stat">
+        <div class="widget-stat-label">SOL Processed</div>
+        <div class="widget-stat-value sol" id="widget-sol">—</div>
+      </div>
+    </div>
+
+    <div class="widget-recent">
+      <div class="widget-recent-title">Recent Burns</div>
+      <div id="widget-burns">
+        <div class="widget-burn">
+          <span>No burns yet</span>
+          <span class="widget-burn-time">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="widget-footer">
+      <span class="widget-live"></span>
+      <a href="https://drowned.app" target="_blank">View on DROWNED</a>
+    </div>
+  </div>
+
+  <script>
+    // Get token mint from URL params or data attribute
+    const params = new URLSearchParams(window.location.search);
+    const tokenMint = params.get('mint') || document.currentScript?.dataset?.mint || '';
+    const apiBase = params.get('api') || 'https://drowned.app';
+
+    function formatNum(n) {
+      if (!n || isNaN(n)) return '0';
+      const num = parseFloat(n);
+      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+      return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+
+    function timeAgo(date) {
+      if (!date) return '—';
+      const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+      if (seconds < 60) return 'now';
+      if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+      return Math.floor(seconds / 86400) + 'd';
+    }
+
+    async function loadWidget() {
+      if (!tokenMint) {
+        document.getElementById('widget-ticker').textContent = 'No token specified';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${apiBase}/api/project?mint=${tokenMint}`);
+        const data = await res.json();
+
+        if (data.project) {
+          document.getElementById('widget-ticker').textContent = data.project.ticker || 'Token';
+          document.getElementById('widget-burned').textContent = formatNum(data.project.totalBurned);
+          document.getElementById('widget-sol').textContent = formatNum(data.project.totalSol) + ' SOL';
+
+          if (data.burnHistory && data.burnHistory.length > 0) {
+            document.getElementById('widget-burns').innerHTML = data.burnHistory.slice(0, 3).map(b => `
+              <div class="widget-burn">
+                <span class="widget-burn-amount">${formatNum(b.tokens_burned)} burned</span>
+                <span class="widget-burn-time">${timeAgo(b.created_at)}</span>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Widget load error:', e);
+      }
+    }
+
+    loadWidget();
+    setInterval(loadWidget, 30000);
+  </script>
+</body>
+</html>

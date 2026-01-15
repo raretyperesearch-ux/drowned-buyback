@@ -1,0 +1,38 @@
+{
+  "name": "drowned-buyback-burn",
+  "version": "1.0.0",
+  "description": "🔥 What Is Dead May Never Die - Automatic buyback + burn as a service for Solana tokens",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js",
+    "worker": "node worker.js",
+    "worker:loop": "node worker.js --loop --interval 5",
+    "test": "node test-setup.js",
+    "test:setup": "node test-setup.js",
+    "sync-webhooks": "node -e \"require('dotenv').config(); const {BuybackBurnService} = require('./service'); const s = new BuybackBurnService({seedPhrase: process.env.SEED_PHRASE, heliusApiKey: process.env.HELIUS_API_KEY, supabaseUrl: process.env.SUPABASE_URL, supabaseKey: process.env.SUPABASE_KEY, webhookUrl: process.env.WEBHOOK_URL}); s.syncWebhooks().then(r => console.log('✅ Synced:', JSON.stringify(r, null, 2))).catch(e => console.error('❌ Error:', e.message));\"",
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "logs": "vercel logs"
+  },
+  "dependencies": {
+    "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.91.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "solana",
+    "buyback",
+    "burn",
+    "defi",
+    "pump.fun",
+    "token"
+  ],
+  "author": "",
+  "license": "MIT"
+}

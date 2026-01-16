@@ -1,4 +1,4 @@
-# 🚀 DROWNED DEPLOYMENT GUIDE
+# DROWNED DEPLOYMENT GUIDE
 
 ## Complete step-by-step guide to deploying your buyback-burn tool
 

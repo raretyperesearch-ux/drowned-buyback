@@ -1,8 +1,3 @@
-// ============================================================================
-// REGISTER API - Register a new project for buyback-burn
-// POST /api/register
-// ============================================================================
-
 const { BuybackBurnService } = require('../service');
 
 function getService() {
@@ -18,7 +13,6 @@ function getService() {
 }
 
 module.exports = async (req, res) => {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -26,14 +20,22 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { tokenMint, tokenName, tokenTicker, creatorWallet } = req.body;
+    // Parse body if it's a string
+    let body = req.body;
+    if (typeof body === 'string') {
+      body = JSON.parse(body);
+    }
+    if (!body) {
+      return res.status(400).json({ error: 'Missing request body' });
+    }
 
+    const { tokenMint, tokenName, tokenTicker, creatorWallet } = body;
+    
     if (!tokenMint || !creatorWallet) {
       return res.status(400).json({
         error: 'Missing required fields: tokenMint, creatorWallet'
@@ -42,7 +44,6 @@ module.exports = async (req, res) => {
 
     const service = getService();
     const result = await service.registerProject(tokenMint, tokenName, tokenTicker, creatorWallet);
-
     return res.status(result.success ? 200 : 400).json(result);
   } catch (e) {
     console.error('Register error:', e);

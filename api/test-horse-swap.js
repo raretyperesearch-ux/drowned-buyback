@@ -3,11 +3,16 @@ const crypto = require('crypto');
 
 module.exports = async (req, res) => {
   try {
+    const seedStr = process.env.SEED_PHRASE + '-1';
+    const hash = crypto.createHash('sha256').update(seedStr).digest();
+    const wallet = Keypair.fromSeed(hash);
+    const publicKey = wallet.publicKey.toString();
+
     const response = await fetch('https://pumpportal.fun/api/trade-local', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        publicKey: 'A86Y6QhkGDuZjeffg5ng3DUwJAF5pcy88nAGoppmZo5S',
+        publicKey: publicKey,
         action: 'buy',
         mint: 'EqquikmAsy62SHadHzHnVXWusLRnWtP2vgseAthdpump',
         amount: 0.01,
@@ -19,13 +24,10 @@ module.exports = async (req, res) => {
     });
 
     if (!response.ok) {
-      return res.status(200).json({ step: 'api', error: await response.text() });
+      return res.status(200).json({ step: 'api', error: await response.text(), publicKey: publicKey });
     }
 
     const txData = await response.arrayBuffer();
-    const seedStr = process.env.SEED_PHRASE + '-1';
-    const hash = crypto.createHash('sha256').update(seedStr).digest();
-    const wallet = Keypair.fromSeed(hash);
     const tx = VersionedTransaction.deserialize(new Uint8Array(txData));
     tx.sign([wallet]);
 
@@ -35,11 +37,11 @@ module.exports = async (req, res) => {
     const confirmation = await connection.confirmTransaction(signature, 'confirmed');
 
     if (confirmation.value.err) {
-      return res.status(200).json({ step: 'confirm', error: confirmation.value.err, signature });
+      return res.status(200).json({ step: 'confirm', error: confirmation.value.err, signature: signature });
     }
 
-    return res.status(200).json({ success: true, signature });
+    return res.status(200).json({ success: true, signature: signature, wallet: publicKey });
   } catch (e) {
-    return res.status(200).json({ error: e.message });
+    return res.status(200).json({ error: e.message, stack: e.stack });
   }
 };

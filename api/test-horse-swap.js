@@ -3,7 +3,7 @@ const crypto = require('crypto');
 
 module.exports = async (req, res) => {
   try {
-    const seedStr = process.env.SEED_PHRASE + '-1';
+    const seedStr = process.env.SEED_PHRASE + '-4';
     const hash = crypto.createHash('sha256').update(seedStr).digest();
     const wallet = Keypair.fromSeed(hash);
     const publicKey = wallet.publicKey.toString();
@@ -37,12 +37,6 @@ module.exports = async (req, res) => {
       skipPreflight: true,
       maxRetries: 3
     });
-
-    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-
-    if (confirmation.value.err) {
-      return res.status(200).json({ step: 'confirm', error: confirmation.value.err, signature: signature });
-    }
 
     return res.status(200).json({ success: true, signature: signature, wallet: publicKey });
   } catch (e) {

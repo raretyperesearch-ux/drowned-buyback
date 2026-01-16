@@ -1,7 +1,3 @@
-// ============================================================================
-// CORE MODULE - JUPITER SWAP + SEND TO BURN ADDRESS
-// ============================================================================
-
 const { Connection, VersionedTransaction, Keypair, PublicKey, Transaction } = require('@solana/web3.js');
 const { createTransferInstruction, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } = require('@solana/spl-token');
 const crypto = require('crypto');
@@ -10,16 +6,15 @@ const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ
 const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 
-// Derive a burn address - no one has the private key to this
-const burnSeed = crypto.createHash('sha256').update('DROWNED_BURN_ADDRESS_V1').digest();
-const BURN_ADDRESS = Keypair.fromSeed(burnSeed).publicKey;
+function getBurnAddress() {
+  var seed = crypto.createHash('sha256').update('DROWNED_BURN_ADDRESS_PERMANENT').digest();
+  return Keypair.fromSeed(seed).publicKey;
+}
 
-// ============================================================================
-// WALLET DERIVATION
-// ============================================================================
+var BURN_ADDRESS = getBurnAddress();
 
 function deriveWallet(seedPhrase, index) {
-  const hash = crypto.createHash('sha256').update(`${seedPhrase}-${index}`).digest();
+  var hash = crypto.createHash('sha256').update(seedPhrase + '-' + index).digest();
   return Keypair.fromSeed(hash);
 }
 
@@ -27,134 +22,114 @@ function getWalletAddress(seedPhrase, index) {
   return deriveWallet(seedPhrase, index).publicKey.toString();
 }
 
-// ============================================================================
-// WALLET MONITOR
-// ============================================================================
-
 class WalletMonitor {
   constructor(heliusApiKey) {
-    this.connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`);
+    this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=' + heliusApiKey);
   }
 
   async getBalance(walletAddress) {
-    const balance = await this.connection.getBalance(new PublicKey(walletAddress));
+    var balance = await this.connection.getBalance(new PublicKey(walletAddress));
     return balance / 1e9;
   }
 
   async getTokenBalance(walletAddress, mintAddress) {
-    const pubkey = new PublicKey(walletAddress);
+    var pubkey = new PublicKey(walletAddress);
+    var programIds = [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID];
     
-    for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
-      const accounts = await this.connection.getParsedTokenAccountsByOwner(pubkey, { programId });
-      for (const acc of accounts.value) {
-        if (acc.account.data.parsed.info.mint === mintAddress) {
-          return {
-            amount: acc.account.data.parsed.info.tokenAmount.uiAmount,
-            rawAmount: acc.account.data.parsed.info.tokenAmount.amount,
-            decimals: acc.account.data.parsed.info.tokenAmount.decimals,
-            tokenAccount: acc.pubkey.toString()
-          };
+    for (var i = 0; i < programIds.length; i++) {
+      var programId = programIds[i];
+      try {
+        var accounts = await this.connection.getParsedTokenAccountsByOwner(pubkey, { programId: programId });
+        for (var j = 0; j < accounts.value.length; j++) {
+          var acc = accounts.value[j];
+          if (acc.account.data.parsed.info.mint === mintAddress) {
+            return {
+              amount: acc.account.data.parsed.info.tokenAmount.uiAmount,
+              rawAmount: acc.account.data.parsed.info.tokenAmount.amount,
+              decimals: acc.account.data.parsed.info.tokenAmount.decimals,
+              tokenAccount: acc.pubkey.toString()
+            };
+          }
         }
+      } catch (e) {
+        console.log('Error checking program: ' + e.message);
       }
     }
     return null;
   }
 }
 
-// ============================================================================
-// JUPITER SWAP
-// ============================================================================
-
-class JupiterSwap {
+class PumpPortalSwap {
   constructor(heliusApiKey) {
-    this.connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`);
+    this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=' + heliusApiKey);
   }
 
   async buyWithSol(wallet, tokenMint, solAmount) {
-    const lamports = Math.floor(solAmount * 1e9);
+    var roundedAmount = Math.floor(solAmount * 10000) / 10000;
+    var publicKey = wallet.publicKey.toString();
     
-    console.log(`   🔄 Jupiter: Swapping ${solAmount} SOL for ${tokenMint.slice(0,8)}...`);
+    console.log('   Buying ' + roundedAmount + ' SOL worth of ' + tokenMint.slice(0, 8) + '...');
 
-    // 1. Get quote
-    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${SOL_MINT}&outputMint=${tokenMint}&amount=${lamports}&slippageBps=1000`;
-    
-    const quoteRes = await fetch(quoteUrl);
-    if (!quoteRes.ok) {
-      throw new Error(`Jupiter quote failed: ${await quoteRes.text()}`);
-    }
-    const quote = await quoteRes.json();
-    
-    if (!quote || quote.error) {
-      throw new Error(`No route found: ${quote?.error || 'Unknown'}`);
-    }
-
-    console.log(`   📊 Quote received, getting swap tx...`);
-
-    // 2. Get swap transaction
-    const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
+    var response = await fetch('https://pumpportal.fun/api/trade-local', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        quoteResponse: quote,
-        userPublicKey: wallet.publicKey.toString(),
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        prioritizationFeeLamports: 'auto'
+        publicKey: publicKey,
+        action: 'buy',
+        mint: tokenMint,
+        amount: roundedAmount,
+        denominatedInSol: 'true',
+        slippage: 50,
+        priorityFee: 0.002,
+        pool: 'pump-amm'
       })
     });
 
-    if (!swapRes.ok) {
-      throw new Error(`Jupiter swap failed: ${await swapRes.text()}`);
+    if (!response.ok) {
+      var errText = await response.text();
+      throw new Error('PumpPortal error: ' + errText);
     }
-    
-    const { swapTransaction } = await swapRes.json();
 
-    // 3. Sign and send
-    const txBuf = Buffer.from(swapTransaction, 'base64');
-    const tx = VersionedTransaction.deserialize(txBuf);
+    var txData = await response.arrayBuffer();
+    var tx = VersionedTransaction.deserialize(new Uint8Array(txData));
     tx.sign([wallet]);
 
-    const signature = await this.connection.sendTransaction(tx, {
+    var signature = await this.connection.sendRawTransaction(tx.serialize(), {
       skipPreflight: true,
       maxRetries: 3
     });
 
-    console.log(`   ⏳ Confirming: ${signature}`);
-    
-    await this.connection.confirmTransaction(signature, 'confirmed');
-    
-    console.log(`   ✅ Swap complete!`);
+    console.log('   Swap tx: ' + signature);
 
-    return { success: true, signature, solSpent: solAmount };
+    return { success: true, signature: signature, solSpent: roundedAmount };
   }
 }
 
-// ============================================================================
-// TOKEN BURNER - SENDS TO BURN ADDRESS
-// ============================================================================
-
 class TokenBurner {
   constructor(heliusApiKey) {
-    this.connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`);
+    this.connection = new Connection('https://mainnet.helius-rpc.com/?api-key=' + heliusApiKey);
   }
 
   async burn(wallet, mintAddress) {
-    const mintPubkey = new PublicKey(mintAddress);
-    
-    // Find source token account
-    let sourceAccount = null;
-    let programId = TOKEN_PROGRAM_ID;
-    let tokenAmount = null;
-    
-    for (const pid of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
-      const accounts = await this.connection.getParsedTokenAccountsByOwner(wallet.publicKey, { programId: pid });
-      for (const acc of accounts.value) {
-        if (acc.account.data.parsed.info.mint === mintAddress) {
-          sourceAccount = acc.pubkey;
-          tokenAmount = acc.account.data.parsed.info.tokenAmount;
-          programId = pid;
-          break;
+    var mintPubkey = new PublicKey(mintAddress);
+    var sourceAccount = null;
+    var tokenAmount = null;
+    var programIds = [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID];
+
+    for (var i = 0; i < programIds.length; i++) {
+      var pid = programIds[i];
+      try {
+        var accounts = await this.connection.getParsedTokenAccountsByOwner(wallet.publicKey, { programId: pid });
+        for (var j = 0; j < accounts.value.length; j++) {
+          var acc = accounts.value[j];
+          if (acc.account.data.parsed.info.mint === mintAddress) {
+            sourceAccount = acc.pubkey;
+            tokenAmount = acc.account.data.parsed.info.tokenAmount;
+            break;
+          }
         }
+      } catch (e) {
+        console.log('Error: ' + e.message);
       }
       if (sourceAccount) break;
     }
@@ -163,80 +138,54 @@ class TokenBurner {
       throw new Error('No token account found');
     }
 
-    const amount = BigInt(tokenAmount.amount);
+    var amount = BigInt(tokenAmount.amount);
     if (amount === 0n) {
-      return { success: false, message: 'No tokens to burn' };
+      throw new Error('Token balance is 0');
     }
 
-    console.log(`   🔥 Sending ${tokenAmount.uiAmount} tokens to burn address...`);
+    console.log('   Burning ' + tokenAmount.uiAmount + ' tokens...');
 
-    // Get the burn address's associated token account
-    const burnTokenAccount = await getAssociatedTokenAddress(
-      mintPubkey,
-      BURN_ADDRESS,
-      true, // allowOwnerOffCurve
-      programId
-    );
+    var burnTokenAccount = await getAssociatedTokenAddress(mintPubkey, BURN_ADDRESS, true);
 
-    const tx = new Transaction();
+    var tx = new Transaction();
 
-    // Check if burn token account exists, if not create it
-    const burnAccountInfo = await this.connection.getAccountInfo(burnTokenAccount);
+    var burnAccountInfo = await this.connection.getAccountInfo(burnTokenAccount);
     if (!burnAccountInfo) {
-      console.log(`   📝 Creating burn token account...`);
-      tx.add(
-        createAssociatedTokenAccountInstruction(
-          wallet.publicKey,
-          burnTokenAccount,
-          BURN_ADDRESS,
-          mintPubkey,
-          programId
-        )
-      );
+      console.log('   Creating burn token account...');
+      tx.add(createAssociatedTokenAccountInstruction(wallet.publicKey, burnTokenAccount, BURN_ADDRESS, mintPubkey));
     }
 
-    // Transfer tokens to burn address
-    tx.add(
-      createTransferInstruction(
-        sourceAccount,
-        burnTokenAccount,
-        wallet.publicKey,
-        amount,
-        [],
-        programId
-      )
-    );
+    tx.add(createTransferInstruction(sourceAccount, burnTokenAccount, wallet.publicKey, amount));
 
+    var blockhash = await this.connection.getLatestBlockhash();
     tx.feePayer = wallet.publicKey;
-    tx.recentBlockhash = (await this.connection.getLatestBlockhash()).blockhash;
+    tx.recentBlockhash = blockhash.blockhash;
     tx.sign(wallet);
 
-    const signature = await this.connection.sendRawTransaction(tx.serialize());
-    await this.connection.confirmTransaction(signature, 'confirmed');
+    var signature = await this.connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: true,
+      maxRetries: 3
+    });
 
-    console.log(`   ✅ Sent to burn address! Tx: ${signature}`);
+    console.log('   Burn tx: ' + signature);
 
     return {
       success: true,
-      signature,
+      signature: signature,
       burned: tokenAmount.uiAmount,
       decimals: tokenAmount.decimals
     };
   }
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
 module.exports = {
-  deriveWallet,
-  getWalletAddress,
-  WalletMonitor,
-  JupiterSwap,
-  TokenBurner,
-  TOKEN_PROGRAM_ID,
-  TOKEN_2022_PROGRAM_ID,
-  SOL_MINT,
-  BURN_ADDRESS
+  deriveWallet: deriveWallet,
+  getWalletAddress: getWalletAddress,
+  WalletMonitor: WalletMonitor,
+  PumpPortalSwap: PumpPortalSwap,
+  TokenBurner: TokenBurner,
+  TOKEN_PROGRAM_ID: TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID: TOKEN_2022_PROGRAM_ID,
+  SOL_MINT: SOL_MINT,
+  BURN_ADDRESS: BURN_ADDRESS
 };

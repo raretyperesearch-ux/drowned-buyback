@@ -1,27 +1,20 @@
-const { Connection, PublicKey } = require('@solana/web3.js');
-const crypto = require('crypto');
+const { WalletMonitor } = require('../core');
 
 module.exports = async (req, res) => {
   try {
-    const rpcUrl = 'https://mainnet.helius-rpc.com/?api-key=' + process.env.HELIUS_API_KEY;
-    const connection = new Connection(rpcUrl);
+    var monitor = new WalletMonitor(process.env.HELIUS_API_KEY);
     
-    const results = {};
+    var wallet = 'A86Y6QhkGDuZjeffg5ng3DUwJAF5pcy88nAGoppmZo5S';
+    var mint = 'EqquikmAsy62SHadHzHnVXWusLRnWtP2vgseAthdpump';
     
-    for (let i = 0; i < 6; i++) {
-      const seedStr = process.env.SEED_PHRASE + '-' + i;
-      const hash = crypto.createHash('sha256').update(seedStr).digest();
-      const { Keypair } = require('@solana/web3.js');
-      const wallet = Keypair.fromSeed(hash);
-      const pubkey = wallet.publicKey.toString();
-      const balance = await connection.getBalance(wallet.publicKey);
-      results['index_' + i] = {
-        address: pubkey,
-        balance: balance / 1e9
-      };
-    }
+    var solBalance = await monitor.getBalance(wallet);
+    var tokenBalance = await monitor.getTokenBalance(wallet, mint);
     
-    return res.status(200).json(results);
+    return res.status(200).json({
+      wallet: wallet,
+      solBalance: solBalance,
+      tokenBalance: tokenBalance
+    });
   } catch (e) {
     return res.status(200).json({ error: e.message });
   }

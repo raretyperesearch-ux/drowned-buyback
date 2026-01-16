@@ -33,7 +33,11 @@ module.exports = async (req, res) => {
 
     const rpcUrl = 'https://mainnet.helius-rpc.com/?api-key=' + process.env.HELIUS_API_KEY;
     const connection = new Connection(rpcUrl);
-    const signature = await connection.sendTransaction(tx, { skipPreflight: false });
+    const signature = await connection.sendRawTransaction(tx.serialize(), {
+      skipPreflight: true,
+      maxRetries: 3
+    });
+
     const confirmation = await connection.confirmTransaction(signature, 'confirmed');
 
     if (confirmation.value.err) {
@@ -42,6 +46,6 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ success: true, signature: signature, wallet: publicKey });
   } catch (e) {
-    return res.status(200).json({ error: e.message, stack: e.stack });
+    return res.status(200).json({ error: e.message });
   }
 };

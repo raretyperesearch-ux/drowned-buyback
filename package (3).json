@@ -1,0 +1,21 @@
+{
+  "name": "drowned-buyback",
+  "version": "1.0.0",
+  "description": "Buyback and burn as a service for Solana tokens",
+  "main": "service.js",
+  "scripts": {
+    "deploy": "vercel --prod",
+    "logs": "vercel logs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "@solana/spl-token": "^0.4.8",
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

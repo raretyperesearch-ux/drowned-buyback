@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Manual Burn Trigger</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #fff; }
+    h1 { color: #8b5cf6; }
+    .form-group { margin: 20px 0; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #444; background: #2a2a3e; color: #fff; border-radius: 5px; }
+    button { background: #8b5cf6; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    button:hover { background: #a855f7; }
+    .result { margin-top: 20px; padding: 15px; border-radius: 5px; background: #2a2a3e; }
+    .success { border-left: 4px solid #22c55e; }
+    .error { border-left: 4px solid #ef4444; }
+    .loading { opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Manual Burn Trigger</h1>
+  <p>Use this to manually trigger a burn for a token that has SOL in its deposit wallet.</p>
+  
+  <div class="form-group">
+    <label>Token Mint Address:</label>
+    <input type="text" id="tokenMint" placeholder="Enter token mint address (contract address)">
+  </div>
+  
+  <button onclick="triggerBurn()">Trigger Burn</button>
+  
+  <div id="result"></div>
+
+  <script>
+    async function triggerBurn() {
+      const tokenMint = document.getElementById('tokenMint').value.trim();
+      const resultDiv = document.getElementById('result');
+      
+      if (!tokenMint) {
+        resultDiv.innerHTML = '<div class="result error">Please enter a token mint address</div>';
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="result loading">⏳ Executing burn...</div>';
+
+      try {
+        const response = await fetch('/api/test-manual-burn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenMint: tokenMint })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          resultDiv.innerHTML = `
+            <div class="result success">
+              <h3>✅ Burn Successful!</h3>
+              <p><strong>Project:</strong> ${data.result.project}</p>
+              ${data.result.projectBurn ? `
+                <p><strong>SOL Spent:</strong> ${data.result.projectBurn.solSpent.toFixed(4)} SOL</p>
+                <p><strong>Tokens Burned:</strong> ${data.result.projectBurn.tokensBurned}</p>
+                <p><strong>Buy Tx:</strong> <a href="https://solscan.io/tx/${data.result.projectBurn.buySignature}" target="_blank" style="color: #8b5cf6;">${data.result.projectBurn.buySignature.slice(0,8)}...</a></p>
+                <p><strong>Burn Tx:</strong> <a href="https://solscan.io/tx/${data.result.projectBurn.burnSignature}" target="_blank" style="color: #8b5cf6;">${data.result.projectBurn.burnSignature.slice(0,8)}...</a></p>
+              ` : '<p>No project burn (balance too low)</p>'}
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="result error">
+              <h3>❌ Burn Failed</h3>
+              <p>${data.error || 'Unknown error'}</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `
+          <div class="result error">
+            <h3>❌ Error</h3>
+            <p>${err.message}</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>
